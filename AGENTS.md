@@ -1,4 +1,4 @@
-# Dotfiles Repository — Claude Code Instructions
+# Dotfiles Repository — Agent Instructions
 
 This repository stores shared shell, editor, git, tmux, and Claude settings and exposes them to `$HOME` with symlinks.
 
@@ -16,7 +16,7 @@ install.sh     → Creates symlinks and bootstraps local override files
 
 ## Setup Workflow
 
-When the user asks to set up dotfiles, follow these steps:
+When the user asks to set up or install dotfiles, follow these steps:
 
 ### Step 1: Run install.sh
 
@@ -34,11 +34,7 @@ Guide the user to create these files from the examples:
 2. `~/.vimrc.local` from `local/.vimrc.local.example`
 3. `~/.gitconfig.local` for machine-specific git settings
 
-For `~/.bashrc.local`, ask about conda paths, project-specific `PATH` entries, optional sourced env files, and whether they want to set `ANTHROPIC_API_KEY`.
-
-For `~/.vimrc.local`, ask about local color scheme or font preferences.
-
-For `~/.gitconfig.local`, ask about machine-specific email, signing keys, or credential helpers.
+Ask about conda paths, project `PATH` entries, sourced env files, git identity, signing, credential helpers, and Vim preferences.
 
 ### Step 3: Verify
 
@@ -54,26 +50,5 @@ ls -la ~/.bashrc ~/.vimrc ~/.gitconfig ~/.claude/settings.json ~/.tmux.conf
 - Never modify `*.local` files through git
 - Machine-specific paths belong in `~/.bashrc.local`
 - When adding a new shared config, add its symlink entry to `install.sh`
-- If a config needs local overrides, add an example template rather than tracking machine-specific values
+- If a config needs local overrides, add an example template instead of committing machine-specific values
 - `install.sh` is idempotent and safe to re-run
-
-## Symlink Map
-
-| Repo File | Home Target |
-|---|---|
-| `bash/.bashrc` | `~/.bashrc` |
-| `bash/.bash_profile` | `~/.bash_profile` |
-| `bash/.bash_aliases` | `~/.bash_aliases` |
-| `vim/.vimrc` | `~/.vimrc` |
-| `git/.gitconfig` | `~/.gitconfig` |
-| `claude/settings.json` | `~/.claude/settings.json` |
-| `tmux/.tmux.conf` | `~/.tmux.conf` |
-
-## Adding New Configs
-
-To add a new tool config:
-
-1. Create a directory for the tool
-2. Place the shared config file there
-3. Add a symlink entry to `install.sh`
-4. Add a local example file if machine-specific overrides are needed

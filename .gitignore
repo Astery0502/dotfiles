@@ -5,10 +5,8 @@
 local/*
 !local/*.example
 
-# Claude local settings (but keep the example)
-claude/settings.local.json
+# Claude project-local settings
 .claude/
-!claude/settings.local.example.json
 
 # Secrets
 *.secret
