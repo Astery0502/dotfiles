@@ -141,6 +141,16 @@ test_refuses_unsafe_fragment_name() {
     rm "$TEST_ROOT/repo/config/shells/bash/rc.d/50-unsafe name.bash"
 }
 
+test_migrates_legacy_repo_symlink() {
+    legacy_home="$TEST_ROOT/legacy-home"
+    mkdir -p "$legacy_home"
+    ln -s "$TEST_ROOT/repo/bash/.bashrc" "$legacy_home/.bashrc"
+    HOME="$legacy_home" "$TEST_ROOT/repo/install.sh"
+    assert_file "$legacy_home/.bashrc"
+    [ ! -L "$legacy_home/.bashrc" ] || fail "legacy .bashrc remained a symlink"
+    assert_contains "$legacy_home/.bashrc" '# >>> dotfiles managed loader >>>'
+}
+
 test_install_preserves_native_files
 test_install_is_idempotent
 test_all_adapters
@@ -149,4 +159,5 @@ test_refuses_unsafe_fragment_name
 test_uninstall_preserves_native_content
 test_refuses_unrelated_anchor
 test_refuses_unrelated_symlink
+test_migrates_legacy_repo_symlink
 echo "PASS: install tests"

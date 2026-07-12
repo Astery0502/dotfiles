@@ -46,7 +46,12 @@ backup_file() {
     fi
     relpath="${target#$HOME/}"
     mkdir -p "$BACKUP_DIR/$(dirname "$relpath")"
-    cp -a "$target" "$BACKUP_DIR/$relpath"
+    [ ! -e "$BACKUP_DIR/$relpath" ] && [ ! -L "$BACKUP_DIR/$relpath" ] || return 0
+    if [ -L "$target" ]; then
+        ln -s "$(readlink "$target")" "$BACKUP_DIR/$relpath"
+    else
+        cp -a "$target" "$BACKUP_DIR/$relpath"
+    fi
     BACKED_UP=1
 }
 
