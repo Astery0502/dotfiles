@@ -1,10 +1,6 @@
 # Local override files (machine-specific, secrets)
 *.local
 
-# Local directory contents (but keep examples)
-local/*
-!local/*.example
-
 # Claude project-local settings
 .claude/
 
