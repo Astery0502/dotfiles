@@ -1,54 +1,31 @@
-# Dotfiles Repository — Agent Instructions
+# Dotfiles Repository Agent Instructions
 
-This repository stores shared shell, editor, git, tmux, and Claude settings and exposes them to `$HOME` with symlinks.
-
-## Repository Structure
-
-```text
-bash/          → .bashrc, .bash_profile, .bash_aliases
-vim/           → .vimrc
-git/           → .gitconfig
-claude/        → settings.json
-tmux/          → .tmux.conf
-local/         → *.example templates for machine-specific overrides
-install.sh     → Creates symlinks and bootstraps local override files
-```
+This repository stores categorized shared configuration fragments. Native home-directory configuration files remain regular user-owned files and load shared fragments through installer-managed blocks.
 
 ## Setup Workflow
 
-When the user asks to set up or install dotfiles, follow these steps:
+1. Run `./install.sh --dry-run` from the repository at any location.
+2. Inspect the proposed anchor and native-file changes.
+3. Run `./install.sh`.
+4. Verify `~/.config/dotfiles` points to the repository.
+5. Verify `~/.bashrc`, `~/.bash_profile`, `~/.vimrc`, `~/.tmux.conf`, and `~/.gitconfig` are regular files containing one managed loader block.
 
-### Step 1: Run install.sh
+## Configuration Contract
 
-```bash
-cd ~/.dotfiles && ./install.sh
-```
+- Preserve native configuration outside managed loader blocks.
+- Put shared fragments under `config/<category>/<tool>/`.
+- Recursively discover only extensions registered for that tool.
+- Sort fragments by relative path with `LC_ALL=C`.
+- Use numeric filename prefixes when load order matters.
+- Keep machine-specific settings and secrets in native files outside managed blocks.
+- Do not add a `local/` template layer.
+- Do not automatically install or merge configuration formats without a safe include mechanism.
+- Run `tests/install_test.sh` after changing installer behavior or directory conventions.
 
-This creates symlinks from `$HOME` into this repo and backs up any existing real files to `~/.dotfiles-backup/<timestamp>/`.
+## Safety Rules
 
-### Step 2: Create local override files
-
-Guide the user to create these files from the examples:
-
-1. `~/.bashrc.local` from `local/.bashrc.local.example`
-2. `~/.vimrc.local` from `local/.vimrc.local.example`
-3. `~/.gitconfig.local` for machine-specific git settings
-
-Ask about conda paths, project `PATH` entries, sourced env files, git identity, signing, credential helpers, and Vim preferences.
-
-### Step 3: Verify
-
-After setup, verify the symlinks:
-
-```bash
-ls -la ~/.bashrc ~/.vimrc ~/.gitconfig ~/.claude/settings.json ~/.tmux.conf
-```
-
-## Rules
-
-- Never commit secrets, API keys, tokens, or private credentials
-- Never modify `*.local` files through git
-- Machine-specific paths belong in `~/.bashrc.local`
-- When adding a new shared config, add its symlink entry to `install.sh`
-- If a config needs local overrides, add an example template instead of committing machine-specific values
-- `install.sh` is idempotent and safe to re-run
+- Never commit secrets, API keys, tokens, private credentials, or machine-specific paths.
+- Never edit content outside installer-managed blocks in native home-directory files.
+- Never replace an unrelated symlink or a real `~/.config/dotfiles` directory.
+- Add a new installer adapter before claiming support for a new tool or extension.
+- Keep `install.sh` idempotent and keep `--dry-run` free of filesystem mutations.

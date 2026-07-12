@@ -1,60 +1,72 @@
 # dotfiles
 
-Personal configuration files managed with git and symlinks.
+Shared configuration fragments loaded by native application configuration files.
 
-## Quick Start
+## Install
+
+Clone the repository anywhere, using any directory name, then run:
 
 ```bash
-git clone https://github.com/Astery0502/.dotfiles ~/.dotfiles
-cd ~/.dotfiles
 ./install.sh
 ```
 
-Then create local override files as needed from the examples in `local/`.
+The installer creates `~/.config/dotfiles` as a stable symlink to the repository. It preserves native files such as `~/.bashrc` and manages only marked loader blocks inside them. Existing files are backed up under `~/dotfiles-backup/<timestamp>/` before modification.
+
+Preview changes or remove managed integration with:
+
+```bash
+./install.sh --dry-run
+./install.sh --uninstall
+```
 
 ## Structure
 
 ```text
-~/.dotfiles/
-├── bash/          # Bash config (.bashrc, .bash_profile, .bash_aliases)
-├── vim/           # Vim config (.vimrc)
-├── git/           # Git config (.gitconfig)
-├── claude/        # Shared Claude settings
-├── tmux/          # Tmux config
-├── local/         # Example templates for machine-specific overrides
-├── install.sh     # Symlink installer (backs up existing files)
-└── CLAUDE.md      # Repo instructions for Claude-assisted setup
+config/
+├── shells/bash/
+│   ├── rc.d/          # Recursively loaded by ~/.bashrc
+│   └── profile.d/     # Recursively loaded by ~/.bash_profile
+├── editors/vim/       # Recursively loaded by ~/.vimrc
+├── terminals/tmux/    # Recursively loaded by ~/.tmux.conf
+├── development/git/   # Included by ~/.gitconfig
+└── applications/      # Application configs without universal integration
 ```
 
-## How It Works
+Categories organize tools but do not define installer behavior. Each registered tool adapter accepts only its own extension and loads matching files in `LC_ALL=C` relative-path order. Use numeric prefixes such as `10-options` and `20-bindings` when order matters.
 
-- Shared config files live in this repo under category directories
-- `install.sh` creates symlinks from `$HOME` pointing into this repo
-- Machine-specific values go in `*.local` files which are git-ignored
-- Main configs source or extend their local counterparts if they exist
+Fragment relative paths may contain only ASCII letters, digits, `/`, `.`, `_`, and `-`. This keeps generated Bash, Vim, tmux, and Git syntax deterministic and safe.
 
-## Local Override Files
+## Native Ownership
 
-These are not tracked by git. Create them from the examples:
+Machine-specific settings remain in native files outside the managed block:
 
-| Example Template | Create As |
-|---|---|
-| `local/.bashrc.local.example` | `~/.bashrc.local` |
-| `local/.vimrc.local.example` | `~/.vimrc.local` |
+```bash
+# >>> dotfiles managed loader >>>
+source "$HOME/.config/dotfiles/config/shells/bash/rc.d/20-main.bash"
+# <<< dotfiles managed loader <<<
 
-## Adding a New Config
+export MACHINE_SPECIFIC_PATH="/local/path"
+```
 
-1. Place the shared version in the appropriate directory, for example `tool/.toolrc`
-2. Add a symlink entry in `install.sh`
-3. If it needs machine-specific overrides, add a `local/*.example` template
-4. Make the main config source or extend the local file conditionally
+Do not commit secrets, credentials, private endpoints, or machine-specific paths. Shared fragments may use capability checks such as `command -v` when a setting is portable across machines.
 
-## Assistant Setup
+## Supported Adapters
 
-Open Claude Code in this directory and use the repo instructions in `CLAUDE.md` to walk through setup.
+| Tool | Fragment pattern | Native target | Method |
+|---|---|---|---|
+| Bash interactive | `config/shells/bash/rc.d/**/*.bash` | `~/.bashrc` | `source` |
+| Bash login | `config/shells/bash/profile.d/**/*.bash` | `~/.bash_profile` | `source` |
+| Vim | `config/editors/vim/**/*.vim` | `~/.vimrc` | `source` |
+| tmux | `config/terminals/tmux/**/*.conf` | `~/.tmux.conf` | `source-file` |
+| Git | `config/development/git/**/*.gitconfig` | `~/.gitconfig` | `[include]` |
 
-## Rules
+Claude's JSON settings do not support includes. `config/applications/claude/settings.json` is retained as a reference and is not installed, copied, linked, or merged.
 
-- Never commit secrets, API keys, tokens, or private endpoints
-- Machine-specific paths belong in `*.local` files
-- `install.sh` is idempotent and safe to re-run
+## Adding Configuration
+
+1. Put the file under the appropriate registered tool directory.
+2. Use the adapter's recognized extension.
+3. Add a numeric prefix when its relative load order matters.
+4. Run `./install.sh --dry-run` and inspect the proposed update.
+5. Run `./install.sh` to regenerate native managed blocks.
+6. Run `tests/install_test.sh` before committing.
