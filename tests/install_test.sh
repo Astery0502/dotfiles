@@ -81,6 +81,72 @@ test_install_is_idempotent() {
     assert_count "$home/.bashrc" '# <<< dotfiles managed loader <<<' 1
 }
 
+test_all_adapters() {
+    home="$TEST_ROOT/home"
+    assert_contains "$home/.bash_profile" 'profile.d/10-login.bash'
+    assert_contains "$home/.vimrc" 'nested/10-options.vim'
+    assert_contains "$home/.tmux.conf" 'nested/10-options.conf'
+    assert_contains "$home/.gitconfig" '[include]'
+    assert_contains "$home/.gitconfig" 'nested/10-core.gitconfig'
+}
+
+test_dry_run_changes_nothing() {
+    dry_home="$TEST_ROOT/dry-home"
+    mkdir -p "$dry_home"
+    printf '%s\n' 'native=true' > "$dry_home/.bashrc"
+    before="$(cksum "$dry_home/.bashrc")"
+    HOME="$dry_home" "$TEST_ROOT/repo/install.sh" --dry-run > "$TEST_ROOT/dry-run.out"
+    after="$(cksum "$dry_home/.bashrc")"
+    [ "$before" = "$after" ] || fail "dry-run modified .bashrc"
+    [ ! -e "$dry_home/.config/dotfiles" ] || fail "dry-run created anchor"
+    assert_contains "$TEST_ROOT/dry-run.out" 'would update:'
+}
+
+test_uninstall_preserves_native_content() {
+    home="$TEST_ROOT/home"
+    HOME="$home" "$TEST_ROOT/repo/install.sh" --uninstall
+    assert_contains "$home/.bashrc" 'export MACHINE_ONLY=1'
+    assert_not_contains "$home/.bashrc" '# >>> dotfiles managed loader >>>'
+    [ ! -e "$home/.config/dotfiles" ] || fail "uninstall retained anchor"
+}
+
+test_refuses_unrelated_anchor() {
+    blocked_home="$TEST_ROOT/blocked-home"
+    mkdir -p "$blocked_home/.config/dotfiles"
+    if HOME="$blocked_home" "$TEST_ROOT/repo/install.sh" > "$TEST_ROOT/blocked.out" 2>&1; then
+        fail "installer replaced unrelated anchor directory"
+    fi
+    assert_contains "$TEST_ROOT/blocked.out" 'Refusing to replace non-symlink anchor'
+}
+
+test_refuses_unrelated_symlink() {
+    linked_home="$TEST_ROOT/linked-home"
+    mkdir -p "$linked_home"
+    printf '%s\n' 'unrelated=true' > "$TEST_ROOT/unrelated-bashrc"
+    ln -s "$TEST_ROOT/unrelated-bashrc" "$linked_home/.bashrc"
+    if HOME="$linked_home" "$TEST_ROOT/repo/install.sh" > "$TEST_ROOT/linked.out" 2>&1; then
+        fail "installer replaced unrelated .bashrc symlink"
+    fi
+    assert_contains "$TEST_ROOT/linked.out" 'Refusing to replace unrelated symlink'
+}
+
+test_refuses_unsafe_fragment_name() {
+    unsafe_home="$TEST_ROOT/unsafe-home"
+    mkdir -p "$unsafe_home"
+    printf '%s\n' 'export UNSAFE=1' > "$TEST_ROOT/repo/config/shells/bash/rc.d/50-unsafe name.bash"
+    if HOME="$unsafe_home" "$TEST_ROOT/repo/install.sh" > "$TEST_ROOT/unsafe.out" 2>&1; then
+        fail "installer accepted an unsafe fragment path"
+    fi
+    assert_contains "$TEST_ROOT/unsafe.out" 'Unsupported fragment path:'
+    rm "$TEST_ROOT/repo/config/shells/bash/rc.d/50-unsafe name.bash"
+}
+
 test_install_preserves_native_files
 test_install_is_idempotent
+test_all_adapters
+test_dry_run_changes_nothing
+test_refuses_unsafe_fragment_name
+test_uninstall_preserves_native_content
+test_refuses_unrelated_anchor
+test_refuses_unrelated_symlink
 echo "PASS: install tests"
