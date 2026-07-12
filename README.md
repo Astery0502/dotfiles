@@ -25,7 +25,8 @@ Preview changes or remove managed integration with:
 config/
 ├── shells/bash/
 │   ├── rc.d/          # Recursively loaded by ~/.bashrc
-│   └── profile.d/     # Recursively loaded by ~/.bash_profile
+│   ├── profile.d/     # Recursively loaded by ~/.bash_profile
+│   └── os/            # Selected by the Bash OS route
 ├── editors/vim/       # Recursively loaded by ~/.vimrc
 ├── terminals/tmux/    # Recursively loaded by ~/.tmux.conf
 ├── development/git/   # Included by ~/.gitconfig
@@ -33,6 +34,8 @@ config/
 ```
 
 Categories organize tools but do not define installer behavior. Each registered tool adapter accepts only its own extension and loads matching files in `LC_ALL=C` relative-path order. Use numeric prefixes such as `10-options` and `20-bindings` when order matters.
+
+Bash configuration shared by every OS belongs in `rc.d/`. The `rc.d/30-os-route.bash` fragment selects platform-specific configuration from `shells/bash/os/`; files in `os/` are loaded only through that route and are not installer fragments.
 
 Fragment relative paths may contain only ASCII letters, digits, `/`, `.`, `_`, and `-`. This keeps generated Bash, Vim, tmux, and Git syntax deterministic and safe.
 

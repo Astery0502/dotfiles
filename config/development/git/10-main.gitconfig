@@ -1,11 +1,2 @@
-[user]
-	name = Astery
-	email = aster0502@outlook.com
 [init]
 	defaultBranch = master
-[credential "https://github.com"]
-	helper = 
-	helper = !/usr/local/bin/gh auth git-credential
-[credential "https://gist.github.com"]
-	helper = 
-	helper = !/usr/local/bin/gh auth git-credential

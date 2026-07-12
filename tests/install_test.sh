@@ -170,6 +170,37 @@ test_migrates_legacy_repo_symlink() {
     assert_contains "$legacy_home/.bashrc" '# >>> dotfiles managed loader >>>'
 }
 
+test_bash_os_route() {
+    local route_home="$TEST_ROOT/route-home"
+    local route_bin="$TEST_ROOT/route-bin"
+    mkdir -p "$route_home/.config" "$route_bin"
+    ln -s "$REPO_ROOT" "$route_home/.config/dotfiles"
+    printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$route_bin/notify-send"
+    chmod +x "$route_bin/notify-send"
+
+    HOME="$route_home" PATH="$route_bin:/usr/bin:/bin" bash --noprofile --norc -ic '
+        unset BASH_SILENCE_DEPRECATION_WARNING
+        export HOMEBREW_PREFIX=/test
+        OSTYPE=darwin
+        source "$HOME/.config/dotfiles/config/shells/bash/rc.d/30-os-route.bash"
+        [ "$BASH_SILENCE_DEPRECATION_WARNING" = 1 ]
+        ! alias alert >/dev/null 2>&1
+    ' 2>/dev/null
+    HOME="$route_home" PATH="$route_bin:/usr/bin:/bin" bash --noprofile --norc -ic '
+        unset BASH_SILENCE_DEPRECATION_WARNING
+        OSTYPE=linux-gnu
+        source "$HOME/.config/dotfiles/config/shells/bash/rc.d/30-os-route.bash"
+        alias alert >/dev/null 2>&1
+        [ -z "${BASH_SILENCE_DEPRECATION_WARNING:-}" ]
+    ' 2>/dev/null
+
+    HOME="$route_home" OSTYPE=darwin bash -c '
+        unset BASH_SILENCE_DEPRECATION_WARNING
+        source "$HOME/.config/dotfiles/config/shells/bash/rc.d/30-os-route.bash"
+        [ -z "${BASH_SILENCE_DEPRECATION_WARNING:-}" ]
+    '
+}
+
 make_repo
 test_install_lifecycle
 test_dry_run_changes_nothing
@@ -178,4 +209,5 @@ test_refuses_reversed_markers
 test_refuses_unrelated_anchor
 test_refuses_unrelated_symlink
 test_migrates_legacy_repo_symlink
+test_bash_os_route
 echo "PASS: install tests"
