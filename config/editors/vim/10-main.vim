@@ -127,8 +127,3 @@ let g:vim_markdown_edit_url_in = 'tab'	" open target file in a new tab
 "===
 "=== vim-table-mode-config
 "===
-
-" Source local overrides if they exist
-if filereadable(expand("~/.vimrc.local"))
-    source ~/.vimrc.local
-endif

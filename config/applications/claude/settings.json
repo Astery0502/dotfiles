@@ -13,9 +13,9 @@
     ],
     "defaultMode": "bypassPermissions"
   },
-  "model": "haiku",
   "skipWebFetchPreflight": true,
   "effortLevel": "high",
   "skipDangerousModePermissionPrompt": true,
-  "ENABLE_TOOL_SEARCH": true
+  "ENABLE_TOOL_SEARCH": true,
+  "model": "sonnet[1m]"
 }
