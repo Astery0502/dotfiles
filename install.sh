@@ -5,7 +5,8 @@ case "$0" in
     /*) REPO_DIR="${0%/*}" ;;
     *) REPO_DIR="$(cd "$(dirname "$0")" && pwd)" ;;
 esac
-ANCHOR="$HOME/.config/dotfiles"
+ANCHOR_REL='.config/dotfiles'
+ANCHOR="$HOME/$ANCHOR_REL"
 BACKUP_DIR="$HOME/dotfiles-backup/$(date +%Y%m%d_%H%M%S)"
 BEGIN_MARKER='# >>> dotfiles managed loader >>>'
 END_MARKER='# <<< dotfiles managed loader <<<'
@@ -14,6 +15,13 @@ VIM_END='" <<< dotfiles managed loader <<<'
 MODE=install
 DRY_RUN=0
 BACKED_UP=0
+TEMP_DIR=
+
+cleanup() {
+    [ -z "$TEMP_DIR" ] || rm -rf "$TEMP_DIR"
+}
+
+trap cleanup EXIT
 
 usage() {
     echo "Usage: $0 [--dry-run | --uninstall]"
@@ -38,7 +46,8 @@ run() {
 }
 
 backup_file() {
-    target="$1"
+    local target="$1"
+    local relpath
     [ -e "$target" ] || [ -L "$target" ] || return 0
     if [ "$DRY_RUN" -eq 1 ]; then
         echo "would back up: $target"
@@ -56,6 +65,7 @@ backup_file() {
 }
 
 ensure_anchor() {
+    local current
     run mkdir -p "$HOME/.config"
     if [ -L "$ANCHOR" ]; then
         current="$(readlink "$ANCHOR")"
@@ -69,7 +79,8 @@ ensure_anchor() {
 }
 
 prepare_native_file() {
-    target="$1"
+    local target="$1"
+    local link
     run mkdir -p "$(dirname "$target")"
     if [ -L "$target" ]; then
         link="$(readlink "$target")"
@@ -93,22 +104,30 @@ prepare_native_file() {
 }
 
 validate_markers() {
-    target="$1"
-    begin="$2"
-    end="$3"
-    begin_count="$(grep -Fc "$begin" "$target" || true)"
-    end_count="$(grep -Fc "$end" "$target" || true)"
-    if [ "$begin_count" -gt 1 ] || [ "$end_count" -gt 1 ] || [ "$begin_count" != "$end_count" ]; then
+    local target="$1"
+    local begin="$2"
+    local end="$3"
+    if ! awk -v begin="$begin" -v end="$end" '
+        $0 == begin {
+            if (seen_begin || seen_end) exit 1
+            seen_begin = 1
+        }
+        $0 == end {
+            if (!seen_begin || seen_end) exit 1
+            seen_end = 1
+        }
+        END { if (seen_begin != seen_end) exit 1 }
+    ' "$target"; then
         echo "Malformed managed block in $target" >&2
         exit 1
     fi
 }
 
 remove_block_to() {
-    target="$1"
-    begin="$2"
-    end="$3"
-    output="$4"
+    local target="$1"
+    local begin="$2"
+    local end="$3"
+    local output="$4"
     awk -v begin="$begin" -v end="$end" '
         $0 == begin { inside = 1; next }
         $0 == end { inside = 0; next }
@@ -117,49 +136,53 @@ remove_block_to() {
 }
 
 write_block() {
-    target="$1"
-    begin="$2"
-    end="$3"
-    body_file="$4"
+    local target="$1"
+    local begin="$2"
+    local end="$3"
+    local body_file="$4"
+    local temp="$TEMP_DIR/block"
+    local clean="$TEMP_DIR/clean"
     prepare_native_file "$target"
     [ "$DRY_RUN" -eq 1 ] && { echo "would update: $target"; return 0; }
     validate_markers "$target" "$begin" "$end"
-    temp="$(mktemp "${TMPDIR:-/tmp}/dotfiles-block.XXXXXX")"
-    clean="$(mktemp "${TMPDIR:-/tmp}/dotfiles-clean.XXXXXX")"
     remove_block_to "$target" "$begin" "$end" "$clean"
     sed -e '${/^[[:space:]]*$/d;}' "$clean" > "$temp"
     [ ! -s "$temp" ] || printf '\n' >> "$temp"
     printf '%s\n' "$begin" >> "$temp"
     cat "$body_file" >> "$temp"
     printf '%s\n' "$end" >> "$temp"
+    if cmp -s "$temp" "$target"; then
+        rm -f "$temp" "$clean"
+        return 0
+    fi
     backup_file "$target"
     mv "$temp" "$target"
     rm -f "$clean"
 }
 
 remove_managed_block() {
-    target="$1"
-    begin="$2"
-    end="$3"
+    local target="$1"
+    local begin="$2"
+    local end="$3"
+    local temp="$TEMP_DIR/uninstall"
     [ -f "$target" ] || return 0
     validate_markers "$target" "$begin" "$end"
     grep -Fq "$begin" "$target" || return 0
     [ "$DRY_RUN" -eq 1 ] && { echo "would remove managed block: $target"; return 0; }
     backup_file "$target"
-    temp="$(mktemp "${TMPDIR:-/tmp}/dotfiles-uninstall.XXXXXX")"
     remove_block_to "$target" "$begin" "$end" "$temp"
     mv "$temp" "$target"
 }
 
 discover() {
-    root="$1"
-    pattern="$2"
+    local root="$1"
+    local pattern="$2"
     [ -d "$ANCHOR/$root" ] || return 0
     find "$ANCHOR/$root" -type f -name "$pattern" -print | LC_ALL=C sort
 }
 
 validate_relative_path() {
-    relative="$1"
+    local relative="$1"
     case "$relative" in
         *[!A-Za-z0-9_./-]*)
             echo "Unsupported fragment path: $relative" >&2
@@ -173,54 +196,68 @@ relative_to_anchor() {
 }
 
 render_source_block() {
-    kind="$1"
-    root="$2"
-    pattern="$3"
-    output="$4"
+    local kind="$1"
+    local root="$2"
+    local pattern="$3"
+    local output="$4"
+    local file relative
     : > "$output"
     while IFS= read -r file; do
         [ -n "$file" ] || continue
         relative="$(relative_to_anchor "$file")"
         validate_relative_path "$relative"
         case "$kind" in
-            bash) printf 'source "$HOME/.config/dotfiles/%s"\n' "$relative" >> "$output" ;;
-            vim) printf "execute 'source ' . fnameescape(expand('~/.config/dotfiles/%s'))\n" "$relative" >> "$output" ;;
-            tmux) printf 'source-file ~/.config/dotfiles/%s\n' "$relative" >> "$output" ;;
-            git) printf '[include]\n    path = ~/.config/dotfiles/%s\n' "$relative" >> "$output" ;;
+            bash) printf 'source "$HOME/%s/%s"\n' "$ANCHOR_REL" "$relative" >> "$output" ;;
+            vim) printf "execute 'source ' . fnameescape(expand('~/%s/%s'))\n" "$ANCHOR_REL" "$relative" >> "$output" ;;
+            tmux) printf 'source-file ~/%s/%s\n' "$ANCHOR_REL" "$relative" >> "$output" ;;
+            git) printf '[include]\n    path = ~/%s/%s\n' "$ANCHOR_REL" "$relative" >> "$output" ;;
         esac
     done < <(discover "$root" "$pattern")
 }
 
 install_adapter() {
-    target="$1"
-    kind="$2"
-    root="$3"
-    pattern="$4"
-    body="$(mktemp "${TMPDIR:-/tmp}/dotfiles-body.XXXXXX")"
-    render_source_block "$kind" "$root" "$pattern" "$body"
-    if [ "$kind" = vim ]; then
-        write_block "$target" "$VIM_BEGIN" "$VIM_END" "$body"
-    else
-        write_block "$target" "$BEGIN_MARKER" "$END_MARKER" "$body"
+    local target="$1"
+    local kind="$2"
+    local root="$3"
+    local pattern="$4"
+    local begin="$5"
+    local end="$6"
+    local body="$TEMP_DIR/body"
+    if [ "$DRY_RUN" -eq 1 ]; then
+        write_block "$target" "$begin" "$end" /dev/null
+        return
     fi
+    render_source_block "$kind" "$root" "$pattern" "$body"
+    write_block "$target" "$begin" "$end" "$body"
     rm -f "$body"
+}
+
+uninstall_adapter() {
+    remove_managed_block "$1" "$5" "$6"
+}
+
+for_each_adapter() {
+    local action="$1"
+    "$action" "$HOME/.bashrc" bash config/shells/bash/rc.d '*.bash' "$BEGIN_MARKER" "$END_MARKER"
+    "$action" "$HOME/.bash_profile" bash config/shells/bash/profile.d '*.bash' "$BEGIN_MARKER" "$END_MARKER"
+    "$action" "$HOME/.vimrc" vim config/editors/vim '*.vim' "$VIM_BEGIN" "$VIM_END"
+    "$action" "$HOME/.tmux.conf" tmux config/terminals/tmux '*.conf' "$BEGIN_MARKER" "$END_MARKER"
+    "$action" "$HOME/.gitconfig" git config/development/git '*.gitconfig' "$BEGIN_MARKER" "$END_MARKER"
 }
 
 install_all() {
     ensure_anchor
-    install_adapter "$HOME/.bashrc" bash config/shells/bash/rc.d '*.bash'
-    install_adapter "$HOME/.bash_profile" bash config/shells/bash/profile.d '*.bash'
-    install_adapter "$HOME/.vimrc" vim config/editors/vim '*.vim'
-    install_adapter "$HOME/.tmux.conf" tmux config/terminals/tmux '*.conf'
-    install_adapter "$HOME/.gitconfig" git config/development/git '*.gitconfig'
+    if [ "$DRY_RUN" -eq 1 ]; then
+        for_each_adapter install_adapter
+        return
+    fi
+    TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-install.XXXXXX")"
+    for_each_adapter install_adapter
 }
 
 uninstall_all() {
-    remove_managed_block "$HOME/.bashrc" "$BEGIN_MARKER" "$END_MARKER"
-    remove_managed_block "$HOME/.bash_profile" "$BEGIN_MARKER" "$END_MARKER"
-    remove_managed_block "$HOME/.vimrc" "$VIM_BEGIN" "$VIM_END"
-    remove_managed_block "$HOME/.tmux.conf" "$BEGIN_MARKER" "$END_MARKER"
-    remove_managed_block "$HOME/.gitconfig" "$BEGIN_MARKER" "$END_MARKER"
+    [ "$DRY_RUN" -eq 1 ] || TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-install.XXXXXX")"
+    for_each_adapter uninstall_adapter
     if [ -L "$ANCHOR" ] && [ "$(readlink "$ANCHOR")" = "$REPO_DIR" ]; then
         run rm "$ANCHOR"
     fi
