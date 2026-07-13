@@ -16,6 +16,7 @@ MODE=install
 DRY_RUN=0
 BACKED_UP=0
 TEMP_DIR=
+REPORT_CHANGES=()
 
 cleanup() {
     [ -z "$TEMP_DIR" ] || rm -rf "$TEMP_DIR"
@@ -45,6 +46,10 @@ run() {
     fi
 }
 
+record_change() {
+    REPORT_CHANGES+=("$1")
+}
+
 backup_file() {
     local target="$1"
     local relpath
@@ -70,10 +75,13 @@ ensure_anchor() {
     if [ -L "$ANCHOR" ]; then
         current="$(readlink "$ANCHOR")"
         [ "$current" = "$REPO_DIR" ] && return 0
+        record_change "replace stable anchor: $ANCHOR"
         run rm "$ANCHOR"
     elif [ -e "$ANCHOR" ]; then
         echo "Refusing to replace non-symlink anchor: $ANCHOR" >&2
         exit 1
+    else
+        record_change "create stable anchor: $ANCHOR"
     fi
     run ln -s "$REPO_DIR" "$ANCHOR"
 }
@@ -143,7 +151,11 @@ write_block() {
     local temp="$TEMP_DIR/block"
     local clean="$TEMP_DIR/clean"
     prepare_native_file "$target"
-    [ "$DRY_RUN" -eq 1 ] && { echo "would update: $target"; return 0; }
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "would update: $target"
+        record_change "update managed block: $target"
+        return 0
+    fi
     validate_markers "$target" "$begin" "$end"
     remove_block_to "$target" "$begin" "$end" "$clean"
     sed -e '${/^[[:space:]]*$/d;}' "$clean" > "$temp"
@@ -158,6 +170,7 @@ write_block() {
     backup_file "$target"
     mv "$temp" "$target"
     rm -f "$clean"
+    record_change "updated managed block: $target"
 }
 
 remove_managed_block() {
@@ -168,10 +181,15 @@ remove_managed_block() {
     [ -f "$target" ] || return 0
     validate_markers "$target" "$begin" "$end"
     grep -Fq "$begin" "$target" || return 0
-    [ "$DRY_RUN" -eq 1 ] && { echo "would remove managed block: $target"; return 0; }
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "would remove managed block: $target"
+        record_change "remove managed block: $target"
+        return 0
+    fi
     backup_file "$target"
     remove_block_to "$target" "$begin" "$end" "$temp"
     mv "$temp" "$target"
+    record_change "removed managed block: $target"
 }
 
 discover() {
@@ -264,7 +282,37 @@ uninstall_all() {
     for_each_adapter uninstall_adapter
     if [ -L "$ANCHOR" ] && [ "$(readlink "$ANCHOR")" = "$REPO_DIR" ]; then
         run rm "$ANCHOR"
+        record_change "removed stable anchor: $ANCHOR"
     fi
+}
+
+print_report() {
+    local heading change
+    if [ "$DRY_RUN" -eq 1 ]; then
+        heading='Dry-run operations'
+    elif [ "$MODE" = uninstall ]; then
+        heading='Uninstall report'
+    else
+        heading='Install report'
+    fi
+
+    printf '\n%s:\n' "$heading"
+    if [ "${#REPORT_CHANGES[@]}" -eq 0 ]; then
+        echo '  No managed changes.'
+    else
+        for change in "${REPORT_CHANGES[@]}"; do
+            printf '  - %s\n' "$change"
+        done
+    fi
+
+    [ "$MODE" = install ] || return 0
+    cat <<'EOF'
+
+Optional Codex skill packages (not run):
+  npx skills@latest add mattpocock/skills
+  npx skills@latest add Astery0502/asterism
+  These commands inherit HTTP_PROXY and HTTPS_PROXY from your environment.
+EOF
 }
 
 if [ "$MODE" = uninstall ]; then
@@ -276,3 +324,5 @@ fi
 if [ "$BACKED_UP" -eq 1 ]; then
     echo "Backups saved to: $BACKUP_DIR"
 fi
+
+print_report

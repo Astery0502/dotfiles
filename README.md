@@ -19,6 +19,8 @@ Preview changes or remove managed integration with:
 ./install.sh --uninstall
 ```
 
+After a successful install or dry run, the final report lists managed changes or planned dry-run operations and prints optional commands for selecting skills from `mattpocock/skills` and `Astery0502/asterism`. The installer does not run these commands or access the network. If needed, set `HTTP_PROXY` and `HTTPS_PROXY` in the invoking environment before running a suggested command.
+
 ## Structure
 
 ```text

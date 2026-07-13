@@ -76,7 +76,10 @@ test_install_lifecycle() {
     chmod +x "$bin/uname"
     printf '%s\n' 'export MACHINE_ONLY=1' > "$home/.bashrc"
 
-    HOME="$home" PATH="$bin:$PATH" "$TEST_ROOT/repo/install.sh"
+    HOME="$home" PATH="$bin:$PATH" "$TEST_ROOT/repo/install.sh" > "$TEST_ROOT/first-install.out"
+    assert_contains "$TEST_ROOT/first-install.out" 'Install report:'
+    assert_contains "$TEST_ROOT/first-install.out" 'npx skills@latest add mattpocock/skills'
+    assert_contains "$TEST_ROOT/first-install.out" 'npx skills@latest add Astery0502/asterism'
 
     assert_symlink_to "$home/.config/dotfiles" "$TEST_ROOT/repo"
     assert_file "$home/.bashrc"
@@ -90,7 +93,8 @@ test_install_lifecycle() {
     [ "$first_line" -lt "$last_line" ] || fail "Bash fragments are not sorted"
 
     inode="$(ls -di "$home/.bashrc" | awk '{ print $1 }')"
-    HOME="$home" PATH="$bin:$PATH" "$TEST_ROOT/repo/install.sh"
+    HOME="$home" PATH="$bin:$PATH" "$TEST_ROOT/repo/install.sh" > "$TEST_ROOT/second-install.out"
+    assert_contains "$TEST_ROOT/second-install.out" 'No managed changes.'
     assert_count "$home/.bashrc" '# >>> dotfiles managed loader >>>' 1
     assert_count "$home/.bashrc" '# <<< dotfiles managed loader <<<' 1
     [ "$(ls -di "$home/.bashrc" | awk '{ print $1 }')" = "$inode" ] || fail "idempotent install rewrote .bashrc"
@@ -102,7 +106,9 @@ test_install_lifecycle() {
     assert_contains "$home/.gitconfig" 'nested/10-core.gitconfig'
     assert_contains "$home/.config/ghostty/config" 'config/applications/ghostty/10-main.ghostty'
 
-    HOME="$home" PATH="$bin:$PATH" "$TEST_ROOT/repo/install.sh" --uninstall
+    HOME="$home" PATH="$bin:$PATH" "$TEST_ROOT/repo/install.sh" --uninstall > "$TEST_ROOT/uninstall.out"
+    assert_contains "$TEST_ROOT/uninstall.out" 'Uninstall report:'
+    assert_not_contains "$TEST_ROOT/uninstall.out" 'npx skills@latest add'
     assert_contains "$home/.bashrc" 'export MACHINE_ONLY=1'
     assert_not_contains "$home/.bashrc" '# >>> dotfiles managed loader >>>'
     assert_not_contains "$home/.config/ghostty/config" '# >>> dotfiles managed loader >>>'
@@ -132,6 +138,9 @@ test_dry_run_changes_nothing() {
     [ "$before" = "$after" ] || fail "dry-run modified .bashrc"
     [ ! -e "$dry_home/.config/dotfiles" ] || fail "dry-run created anchor"
     assert_contains "$TEST_ROOT/dry-run.out" 'would update:'
+    assert_contains "$TEST_ROOT/dry-run.out" 'Dry-run operations:'
+    assert_contains "$TEST_ROOT/dry-run.out" 'npx skills@latest add mattpocock/skills'
+    assert_contains "$TEST_ROOT/dry-run.out" 'npx skills@latest add Astery0502/asterism'
 }
 
 test_refuses_unrelated_anchor() {
