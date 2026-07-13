@@ -62,6 +62,7 @@ Do not commit secrets, credentials, private endpoints, or machine-specific paths
 | Vim | `config/editors/vim/**/*.vim` | `~/.vimrc` | `source` |
 | tmux | `config/terminals/tmux/**/*.conf` | `~/.tmux.conf` | `source-file` |
 | Git | `config/development/git/**/*.gitconfig` | `~/.gitconfig` | `[include]` |
+| Ghostty (macOS) | `config/applications/ghostty/**/*.ghostty` | `~/.config/ghostty/config` | `config-file` |
 
 Claude's JSON settings do not support includes. `config/applications/claude/settings.json` is retained as a reference and is not installed, copied, linked, or merged.
 

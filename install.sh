@@ -211,6 +211,7 @@ render_source_block() {
             vim) printf "execute 'source ' . fnameescape(expand('~/%s/%s'))\n" "$ANCHOR_REL" "$relative" >> "$output" ;;
             tmux) printf 'source-file ~/%s/%s\n' "$ANCHOR_REL" "$relative" >> "$output" ;;
             git) printf '[include]\n    path = ~/%s/%s\n' "$ANCHOR_REL" "$relative" >> "$output" ;;
+            ghostty) printf 'config-file = ~/%s/%s\n' "$ANCHOR_REL" "$relative" >> "$output" ;;
         esac
     done < <(discover "$root" "$pattern")
 }
@@ -243,6 +244,9 @@ for_each_adapter() {
     "$action" "$HOME/.vimrc" vim config/editors/vim '*.vim' "$VIM_BEGIN" "$VIM_END"
     "$action" "$HOME/.tmux.conf" tmux config/terminals/tmux '*.conf' "$BEGIN_MARKER" "$END_MARKER"
     "$action" "$HOME/.gitconfig" git config/development/git '*.gitconfig' "$BEGIN_MARKER" "$END_MARKER"
+    if [ "$(uname -s)" = Darwin ]; then
+        "$action" "$HOME/.config/ghostty/config" ghostty config/applications/ghostty '*.ghostty' "$BEGIN_MARKER" "$END_MARKER"
+    fi
 }
 
 install_all() {

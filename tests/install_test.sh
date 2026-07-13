@@ -55,23 +55,28 @@ make_repo() {
         "$fixture/config/shells/bash/profile.d" \
         "$fixture/config/editors/vim/nested" \
         "$fixture/config/terminals/tmux/nested" \
-        "$fixture/config/development/git/nested"
+        "$fixture/config/development/git/nested" \
+        "$fixture/config/applications/ghostty"
     printf '%s\n' 'export FIRST=1' > "$fixture/config/shells/bash/rc.d/10-first.bash"
     printf '%s\n' 'export LAST=1' > "$fixture/config/shells/bash/rc.d/nested/20-last.bash"
     printf '%s\n' 'source ~/.bashrc' > "$fixture/config/shells/bash/profile.d/10-login.bash"
     printf '%s\n' 'set number' > "$fixture/config/editors/vim/nested/10-options.vim"
     printf '%s\n' 'set -g mouse on' > "$fixture/config/terminals/tmux/nested/10-options.conf"
     printf '%s\n' '[init]' '    defaultBranch = main' > "$fixture/config/development/git/nested/10-core.gitconfig"
+    printf '%s\n' 'font-size = 18' > "$fixture/config/applications/ghostty/10-main.ghostty"
     printf '%s\n' 'do not load me' > "$fixture/config/shells/bash/rc.d/README.md"
 }
 
 test_install_lifecycle() {
     local home="$TEST_ROOT/home"
+    local bin="$TEST_ROOT/darwin-bin"
     local first_line last_line inode
-    mkdir -p "$home"
+    mkdir -p "$home" "$bin"
+    printf '%s\n' '#!/usr/bin/env bash' 'printf "%s\n" Darwin' > "$bin/uname"
+    chmod +x "$bin/uname"
     printf '%s\n' 'export MACHINE_ONLY=1' > "$home/.bashrc"
 
-    HOME="$home" "$TEST_ROOT/repo/install.sh"
+    HOME="$home" PATH="$bin:$PATH" "$TEST_ROOT/repo/install.sh"
 
     assert_symlink_to "$home/.config/dotfiles" "$TEST_ROOT/repo"
     assert_file "$home/.bashrc"
@@ -85,7 +90,7 @@ test_install_lifecycle() {
     [ "$first_line" -lt "$last_line" ] || fail "Bash fragments are not sorted"
 
     inode="$(ls -di "$home/.bashrc" | awk '{ print $1 }')"
-    HOME="$home" "$TEST_ROOT/repo/install.sh"
+    HOME="$home" PATH="$bin:$PATH" "$TEST_ROOT/repo/install.sh"
     assert_count "$home/.bashrc" '# >>> dotfiles managed loader >>>' 1
     assert_count "$home/.bashrc" '# <<< dotfiles managed loader <<<' 1
     [ "$(ls -di "$home/.bashrc" | awk '{ print $1 }')" = "$inode" ] || fail "idempotent install rewrote .bashrc"
@@ -95,11 +100,25 @@ test_install_lifecycle() {
     assert_contains "$home/.tmux.conf" 'nested/10-options.conf'
     assert_contains "$home/.gitconfig" '[include]'
     assert_contains "$home/.gitconfig" 'nested/10-core.gitconfig'
+    assert_contains "$home/.config/ghostty/config" 'config/applications/ghostty/10-main.ghostty'
 
-    HOME="$home" "$TEST_ROOT/repo/install.sh" --uninstall
+    HOME="$home" PATH="$bin:$PATH" "$TEST_ROOT/repo/install.sh" --uninstall
     assert_contains "$home/.bashrc" 'export MACHINE_ONLY=1'
     assert_not_contains "$home/.bashrc" '# >>> dotfiles managed loader >>>'
+    assert_not_contains "$home/.config/ghostty/config" '# >>> dotfiles managed loader >>>'
     [ ! -e "$home/.config/dotfiles" ] || fail "uninstall retained anchor"
+}
+
+test_skips_ghostty_off_macos() {
+    local home="$TEST_ROOT/linux-home"
+    local bin="$TEST_ROOT/linux-bin"
+    mkdir -p "$home" "$bin"
+    printf '%s\n' '#!/usr/bin/env bash' 'printf "%s\n" Linux' > "$bin/uname"
+    chmod +x "$bin/uname"
+
+    HOME="$home" PATH="$bin:$PATH" "$TEST_ROOT/repo/install.sh"
+
+    [ ! -e "$home/.config/ghostty/config" ] || fail "installer configured Ghostty off macOS"
 }
 
 test_dry_run_changes_nothing() {
@@ -210,4 +229,5 @@ test_refuses_unrelated_anchor
 test_refuses_unrelated_symlink
 test_migrates_legacy_repo_symlink
 test_bash_os_route
+test_skips_ghostty_off_macos
 echo "PASS: install tests"
