@@ -309,7 +309,14 @@ print_report() {
     cat <<'EOF'
 
 Optional Codex skill packages (not run):
+  Matt Pocock skills (interactive):
   npx skills@latest add mattpocock/skills
+  Select the promoted engineering and productivity skills only; exclude deprecated, in-progress, miscellaneous, and personal skills.
+  Restart Codex, then configure each project interactively by running:
+  /setup-matt-pocock-skills
+  This writes the project's issue tracker, triage labels, and documentation layout under docs/agents/.
+
+  Asterism skills:
   npx skills@latest add Astery0502/asterism
   These commands inherit HTTP_PROXY and HTTPS_PROXY from your environment.
 EOF

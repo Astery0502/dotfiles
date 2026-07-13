@@ -19,7 +19,7 @@ Preview changes or remove managed integration with:
 ./install.sh --uninstall
 ```
 
-After a successful install or dry run, the final report lists managed changes or planned dry-run operations and prints optional commands for selecting skills from `mattpocock/skills` and `Astery0502/asterism`. The installer does not run these commands or access the network. If needed, set `HTTP_PROXY` and `HTTPS_PROXY` in the invoking environment before running a suggested command.
+After a successful install or dry run, the final report lists managed changes or planned dry-run operations and prints optional skill installation commands. For `mattpocock/skills`, it recommends using the upstream interactive installer and selecting only the promoted engineering and productivity skills, excluding deprecated, in-progress, miscellaneous, and personal skills. This keeps the selection aligned with upstream changes. After installing them and restarting Codex, run `/setup-matt-pocock-skills` interactively in each repository to configure its issue tracker, triage labels, and documentation layout under `docs/agents/`. The report also includes the interactive `Astery0502/asterism` command. The installer does not run these commands or access the network. If needed, set `HTTP_PROXY` and `HTTPS_PROXY` in the invoking environment before running a suggested command.
 
 ## Structure
 
