@@ -78,12 +78,11 @@ test_install_lifecycle() {
 
     HOME="$home" PATH="$bin:$PATH" "$TEST_ROOT/repo/install.sh" > "$TEST_ROOT/first-install.out"
     assert_contains "$TEST_ROOT/first-install.out" 'Install report:'
-    assert_contains "$TEST_ROOT/first-install.out" 'npx skills@latest add mattpocock/skills'
-    assert_contains "$TEST_ROOT/first-install.out" 'Select the promoted engineering and productivity skills only'
-    assert_contains "$TEST_ROOT/first-install.out" 'exclude deprecated, in-progress, miscellaneous, and personal skills'
-    assert_contains "$TEST_ROOT/first-install.out" 'Restart Codex, then configure each project interactively by running:'
-    assert_contains "$TEST_ROOT/first-install.out" '/setup-matt-pocock-skills'
-    assert_contains "$TEST_ROOT/first-install.out" 'under docs/agents/'
+    assert_contains "$TEST_ROOT/first-install.out" 'npx skills@latest add mattpocock/skills -g'
+    assert_contains "$TEST_ROOT/first-install.out" 'Select only: grilling, grill-me, handoff, teach, to-spec, to-tickets, and writing-great-skills.'
+    assert_contains "$TEST_ROOT/first-install.out" 'Of these, grilling is model-invoked; the other six are user-invoked.'
+    assert_contains "$TEST_ROOT/first-install.out" 'Without setup-matt-pocock-skills, give to-spec and to-tickets an explicit publication destination'
+    assert_contains "$TEST_ROOT/first-install.out" 'npx skills@latest update -g grilling grill-me handoff teach to-spec to-tickets writing-great-skills'
     assert_contains "$TEST_ROOT/first-install.out" 'npx skills@latest add Astery0502/asterism'
 
     assert_symlink_to "$home/.config/dotfiles" "$TEST_ROOT/repo"
@@ -144,9 +143,9 @@ test_dry_run_changes_nothing() {
     [ ! -e "$dry_home/.config/dotfiles" ] || fail "dry-run created anchor"
     assert_contains "$TEST_ROOT/dry-run.out" 'would update:'
     assert_contains "$TEST_ROOT/dry-run.out" 'Dry-run operations:'
-    assert_contains "$TEST_ROOT/dry-run.out" 'npx skills@latest add mattpocock/skills'
-    assert_contains "$TEST_ROOT/dry-run.out" 'Select the promoted engineering and productivity skills only'
-    assert_contains "$TEST_ROOT/dry-run.out" '/setup-matt-pocock-skills'
+    assert_contains "$TEST_ROOT/dry-run.out" 'npx skills@latest add mattpocock/skills -g'
+    assert_contains "$TEST_ROOT/dry-run.out" 'Select only: grilling, grill-me, handoff, teach, to-spec, to-tickets, and writing-great-skills.'
+    assert_contains "$TEST_ROOT/dry-run.out" 'npx skills@latest update -g grilling grill-me handoff teach to-spec to-tickets writing-great-skills'
     assert_contains "$TEST_ROOT/dry-run.out" 'npx skills@latest add Astery0502/asterism'
 }
 

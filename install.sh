@@ -309,12 +309,14 @@ print_report() {
     cat <<'EOF'
 
 Optional Codex skill packages (not run):
-  Matt Pocock skills (interactive):
-  npx skills@latest add mattpocock/skills
-  Select the promoted engineering and productivity skills only; exclude deprecated, in-progress, miscellaneous, and personal skills.
-  Restart Codex, then configure each project interactively by running:
-  /setup-matt-pocock-skills
-  This writes the project's issue tracker, triage labels, and documentation layout under docs/agents/.
+  Matt Pocock skills (upstream interactive installer, global scope):
+  npx skills@latest add mattpocock/skills -g
+  Select only: grilling, grill-me, handoff, teach, to-spec, to-tickets, and writing-great-skills.
+  Of these, grilling is model-invoked; the other six are user-invoked.
+  Without setup-matt-pocock-skills, give to-spec and to-tickets an explicit publication destination when invoking them.
+
+  Update the selected Matt Pocock skills:
+  npx skills@latest update -g grilling grill-me handoff teach to-spec to-tickets writing-great-skills
 
   Asterism skills:
   npx skills@latest add Astery0502/asterism
